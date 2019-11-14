@@ -34,6 +34,7 @@ function _ask_do_merge() {
 }
 
 function _parse_branch() {
+    echo "selected branch: $1"
     case $process in
         "clip") echo $1 | tr -d '\n' | xclip -selection c;;
         "branch") git checkout $1; if [[ p -eq 1 ]]; then git pull; fi;;
@@ -59,14 +60,13 @@ len=${#branches[@]}
 if [ $len -eq 0 ]; then
     echo "no branch found"
 elif [ $len -lt 2 ]; then
-    echo $branches
-    _parse_branch $branches
+    _parse_branch ${branches#origin/}
 else
     for index in ${!branches[@]}; do
         echo ' ' $((index+1))')' "${branches[index]}"
     done
     read -n 1 -s choice
     choice=$((choice-1))
-    echo ${branches[$choice]}
-    _parse_branch ${branches[$choice]}
+    selected_branch=${branches[$choice]}
+    _parse_branch ${selected_branch#origin/}
 fi
