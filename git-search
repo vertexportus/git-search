@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+
+## colors
+WHITE=$'\033[1;37m'
+ORANGE=$'\033[0;33m'
+RED=$'\033[0;31m'
+BOLDRED=$'\033[1;31m'
+INVRED=$'\033[1;97;41m'
+GREEN=$'\033[1;32m'
+CYAN=$'\033[0;36m'
+BLUE=$'\033[0;34m'
+LIGHTCYAN=$'\033[1;36m'
+PURPLE=$'\033[0;35m'
+LIGHTPURPLE=$'\033[1;35m'
+YELLOW=$'\033[1;33m'
+NC=$'\033[0m' # No Color
+ASK_QUESTION=" ${YELLOW}??${NC} "
+BREAK_CHAR=$'\n'
+BREAK="${BREAK_CHAR}   ${YELLOW}>${NC} "
+
+function _ask_do_merge() {
+    local current_branch=$(git branch | grep \* | cut -d ' ' -f2 | tr -d '\n')
+    if [[ p -eq 1 ]]; then
+        git checkout $1
+        git pull
+        git checkout $current_branch
+    fi
+    read -rp " ${ASK_QUESTION} ${CYAN}Confirm merge from ${PURPLE}'${1}'${CYAN} into ${PURPLE}'${current_branch}'${CYAN} [y/n]:${BREAK}" INSTALL
+    if [[ ${INSTALL,,} =~ ^(y|yes|j|ja|s|si|sim|o|oui)$ ]]; then
+        git merge $1
+    else
+        echo "${RED}NOT MERGED!${NC}"
+    fi
+}
+
+function _parse_branch() {
+    case $process in
+        "clip") echo $1 | tr -d '\n' | xclip -selection c;;
+        "branch") git checkout $1; if [[ p -eq 1 ]]; then git pull; fi;;
+        "merge") _ask_do_merge $1;;
+    esac;
+}
+
+p=0
+r=""
+process="clip"
+while [[ "$#" -gt 0 ]]; do case $1 in
+  -o|--origin) r="-r";;
+  -b|--branch) process="branch";;
+  -m|--merge) process="merge";;
+  -p|--pull) p=1;;
+  -*) echo "Unknown parameter passed: $1"; exit 1;;
+  *) search_value=$1;;
+esac; shift; done
+
+branches=($(git branch ${r} | grep $search_value | tr -d '*' | tr -d ' '))
+len=${#branches[@]}
+
+if [ $len -eq 0 ]; then
+    echo "no branch found"
+elif [ $len -lt 2 ]; then
+    echo $branches
+    _parse_branch $branches
+else
+    for index in ${!branches[@]}; do
+        echo ' ' $((index+1))')' "${branches[index]}"
+    done
+    read -n 1 -s choice
+    choice=$((choice-1))
+    echo ${branches[$choice]}
+    _parse_branch ${branches[$choice]}
+fi
