@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+#   Copyright (C) 2019-2021 Daniel Alves - All Rights Reserved
+# Permission to copy and modify is granted under the MIT license
+#
+#     -- The menu code is based on a script by Ingo Hollmann -- 
+#
+#   Copyright (C) 2017 Ingo Hollmann - All Rights Reserved
+# Permission to copy and modify is granted under the Creative Commons Attribution 4.0 license
+#
+
 ## colors
 WHITE=$'\033[1;37m'
 ORANGE=$'\033[0;33m'
@@ -42,31 +51,75 @@ function _parse_branch() {
     esac;
 }
 
+cur=0
+draw_menu() {
+    for i in "${branches[@]}"; do
+        if [[ ${branches[$cur]} == $i ]]; then
+            tput setaf 2; echo " > $i"; tput sgr0
+        else
+            echo "   $i";
+        fi
+    done
+}
+
+clear_menu()  {
+    for i in "${branches[@]}"; do tput cuu1; done
+    tput ed
+}
+
+# Draw initial Menu
+start_menu() {
+    draw_menu
+    while read -rsn1 key; do # 1 char (not delimiter), silent
+        # Check for enter/space
+        if [[ -z "$key" ]]; then break; fi
+
+        # catch multi-char special key sequences
+        read -sN1 -t 0.0001 k1; read -sN1 -t 0.0001 k2; read -sN1 -t 0.0001 k3
+        key+=${k1}${k2}${k3}
+
+        case "$key" in
+            # cursor up, left: previous item
+            i|j|$'\e[A'|$'\e0A'|$'\e[D'|$'\e0D') ((cur > 0)) && ((cur--));;
+            # cursor down, right: next item
+            k|l|$'\e[B'|$'\e0B'|$'\e[C'|$'\e0C') ((cur < ${#branches[@]}-1)) && ((cur++));;
+            # home: first item
+            $'\e[1~'|$'\e0H'|$'\e[H')  cur=0;;
+            # end: last item
+            $'\e[4~'|$'\e0F'|$'\e[F') ((cur=${#branches[@]}-1));;
+            # q, carriage return: quit
+            q|''|$'\e') echo "Aborted." && exit;;
+        esac
+        # Redraw menu
+        clear_menu
+        draw_menu
+    done
+}
+
 p=0
 r=""
 process="clip"
 while [[ "$#" -gt 0 ]]; do case $1 in
-  -o|--origin) r="-r";;
-  -b|--branch) process="branch";;
-  -m|--merge) process="merge";;
-  -p|--pull) p=1;;
-  -*) echo "Unknown parameter passed: $1"; exit 1;;
-  *) search_value=$1;;
+    -f|--fetch) git fetch;;
+    -o|--origin) r="-r";;
+    -b|--branch) process="branch";;
+    -m|--merge) process="merge";;
+    -p|--pull) p=1;;
+    -*) echo "Unknown parameter passed: $1"; exit 1;;
+    *) search_value=$1;;
 esac; shift; done
 
-branches=($(git branch ${r} | grep $search_value | tr -d '*' | tr -d ' '))
+declare -a branches=($(git branch ${r} | grep $search_value | tr -d '*' | tr -d ' '))
 len=${#branches[@]}
 
 if [ $len -eq 0 ]; then
     echo "no branch found"
 elif [ $len -lt 2 ]; then
     _parse_branch ${branches#origin/}
+elif [ $len -gt 30 ]; then
+    echo "your search is too big (${len} results). Use a better filter"
 else
-    for index in ${!branches[@]}; do
-        echo ' ' $((index+1))')' "${branches[index]}"
-    done
-    read -n 1 -s choice
-    choice=$((choice-1))
-    selected_branch=${branches[$choice]}
+    start_menu
+    selected_branch=${branches[$cur]}
     _parse_branch ${selected_branch#origin/}
 fi

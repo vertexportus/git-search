@@ -28,3 +28,4 @@ By default it searches LOCAL branches only, but accepts the `-o` or `--origin` p
 
  the command will display the names of the branches being merged, and asks for confirmation
  
+optional parameter `-f` or `--fetch` makes a `git fetch` before executing the search
